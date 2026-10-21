@@ -1,7 +1,7 @@
 # Local development / CI tooling. Use a virtualenv:
 #   python3 -m venv .venv && . .venv/bin/activate && make dev-install
 pytest>=8
-polars>=1.30
+polars>=2.0.0
 pyyaml>=6
 ruff>=0.6
 yamllint>=1.35
