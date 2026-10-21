@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Pregunta / ayuda
-    url: https://github.com/nrogelki/airflow-kubernetes-platform/discussions
-    about: Para dudas de uso, abre una Discussion en vez de un issue.
+  - name: Preguntas frecuentes
+    url: https://github.com/nrogelki/airflow-kubernetes-platform/blob/main/docs/15-preguntas-frecuentes.md
+    about: Antes de abrir un issue, revisa si tu duda ya tiene respuesta aquí.
+  - name: Troubleshooting
+    url: https://github.com/nrogelki/airflow-kubernetes-platform/blob/main/docs/09-troubleshooting.md
+    about: Errores reales de la plataforma con su causa y su solución.

@@ -1,8 +1,12 @@
 version: 2
 updates:
+  # One PR per ecosystem and month instead of one per package.
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    groups:
+      github-actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /docker/airflow
     schedule: { interval: monthly }
@@ -13,3 +17,8 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule: { interval: monthly }
+    groups:
+      dev-tooling:
+        patterns: ["*"]
+        # Major bumps (e.g. polars 1 -> 2) still get their own PR to review apart.
+        update-types: ["minor", "patch"]

@@ -23,7 +23,7 @@ spec:
   restartPolicy: Never
   initContainers:
     - name: token-sidecar
-      image: python:3.10-slim
+      image: python:3.11-slim
       imagePullPolicy: IfNotPresent
       restartPolicy: Always
       securityContext: { runAsUser: 50000, runAsGroup: 0 }

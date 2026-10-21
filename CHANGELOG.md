@@ -6,6 +6,22 @@ versionado según [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+
+- `example_kpo`: imagen dedicada `python:3.10-slim` → `python:3.11-slim` (Python 3.10
+  llega a fin de soporte en octubre de 2026).
+- Dependabot agrupa las actualizaciones en un PR por ecosistema (los saltos mayores de
+  pip siguen en PRs separados).
+- `detect-secrets` en pre-commit usa un `.secrets.baseline` con los falsos positivos
+  auditados.
+
+### Fixed
+
+- Plantilla de issues y `CONTRIBUTING.md` enlazaban a Discussions, que no están activas;
+  ahora apuntan a las preguntas frecuentes y al troubleshooting.
+- El ejemplo de DAG del README explica por qué los DAGs reales añaden un guard de
+  `sys.path`.
+
 ## [1.0.0] - 2026-10-20
 
 Primera versión pública.

@@ -1,19 +1,19 @@
 # example_kpo
 
 **Qué hace:** ejecuta un paso en una **imagen distinta** a la de Airflow (aquí
-`python:3.10-slim`) con `KubernetesPodOperator` (KPO), de dos formas, y después lee los
+`python:3.11-slim`) con `KubernetesPodOperator` (KPO), de dos formas, y después lee los
 resultados con `external_python` en el entorno `p313`.
 
 | Tarea | Qué muestra |
 |---|---|
 | `extract_other_image` | El Pod KPO definido solo con argumentos (`image`, `cmds`, `volumes`) |
 | `extract_with_pod_template` | El Pod KPO a partir de un YAML ([`k8s/pod_templates/example_kpo_pod.yaml`](../../k8s/pod_templates/example_kpo_pod.yaml)) con un **sidecar nativo** y un volumen en memoria compartido: la misma forma que un sidecar de Kerberos que renueva tickets |
-| `read_results` | `p313` (Python 3.13) lee lo que dejaron los Pods de Python 3.10 en `files/example_kpo/` |
+| `read_results` | `p313` (Python 3.13) lee lo que dejaron los Pods de Python 3.11 en `files/example_kpo/` |
 
 | Campo | Valor |
 |---|---|
 | Schedule | manual (`None`) |
-| Imagen dedicada | `python:3.10-slim` (se descarga una vez; en producción usa tu imagen importada con `image_pull_policy="Never"`) |
+| Imagen dedicada | `python:3.11-slim` (se descarga una vez; en producción usa tu imagen importada con `image_pull_policy="Never"`) |
 | Resultado | `files/example_kpo/other_image.txt`, `files/example_kpo/with_template.txt` |
 
 ## Qué pasa al ejecutarlo
@@ -29,7 +29,7 @@ Para verlo en vivo:
 ```bash
 microk8s kubectl get pods -n airflow -w
 # example-kpo-extract-other-image-xxxx   -> Pod de la tarea (imagen de Airflow)
-# extract-other-image-xxxx               -> Pod KPO (python:3.10-slim)
+# extract-other-image-xxxx               -> Pod KPO (python:3.11-slim)
 ```
 
 ## RBAC: qué es y por qué este DAG trae `KPO_LAUNCHER`

@@ -37,7 +37,7 @@ Comprobado en un clúster real (MicroK8s, Airflow 3.2.1) con los dos Pods vivos 
 
 | | Pod base de la tarea | Pod KPO |
 |---|---|---|
-| Imagen | `airflow-k8s-base` (Python 3.12) | `python:3.10-slim` (Python 3.10) |
+| Imagen | `airflow-k8s-base` (Python 3.12) | `python:3.11-slim` (Python 3.11) |
 | IP | propia | **otra** IP |
 | `ownerReferences` | — | ninguna: no "cuelga" del Pod base |
 | Procesos | solo los de Airflow (`execute_workload`) | solo el proceso de tu imagen |

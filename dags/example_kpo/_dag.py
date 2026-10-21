@@ -27,7 +27,8 @@ PROJECT_PATH = "/opt/airflow-platform"  # HOST path of the repo (hostPath volume
 FILES = f"/opt/airflow/files/{DAG_ID}"
 # A public image, pulled once from Docker Hub. In production, build your own image,
 # import it into containerd and use image_pull_policy="Never" (docs/14 §2).
-DEDICATED_IMAGE = "python:3.10-slim"
+# A Python different from the Airflow image (3.12) on purpose, to make the switch visible.
+DEDICATED_IMAGE = "python:3.11-slim"
 
 # Task pod (the one running the operator) -> worker ServiceAccount, which may create
 # pods. Required when the cluster enforces RBAC; harmless when it does not. Affects only
@@ -70,7 +71,7 @@ def read_results(files_dir: str) -> dict:
 
     other = open(f"{files_dir}/other_image.txt").read()
     templated = open(f"{files_dir}/with_template.txt").read()
-    assert other.startswith("python=3.10") and "token=ok" in templated, (other, templated)
+    assert other.startswith("python=3.11") and "token=ok" in templated, (other, templated)
     return {"p313_python": sys.version.split()[0], "other_image": other, "with_template": templated}
 
 

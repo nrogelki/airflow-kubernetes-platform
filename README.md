@@ -159,7 +159,7 @@ PYTHON_ENV = "/opt/conda/envs/p313/bin/python"  # entorno aislado, montado en el
 @task.external_python(python=PYTHON_ENV, expect_airflow=True)
 def extract(local_path: str) -> str:
     from dataplatform.utils.local_files import read_json  # libs/ vía PYTHONPATH
-    from sales_daily.scripts.etl import extract_to_parquet  # lógica propia del DAG
+    from sales_daily.scripts.etl import extract_to_parquet  # dags/ vía PYTHONPATH (ver nota)
 
     return extract_to_parquet(local_path, read_json(local_path, "config.json"))  # solo primitivos
 
@@ -171,6 +171,11 @@ def sales_daily():
 
 sales_daily()
 ```
+
+> **Nota:** `dags/` ya está en el `PYTHONPATH` del Pod, así que el import funciona tal
+> cual. Los DAGs de ejemplo y los que genera `make new-dag` añaden además un *guard*
+> defensivo de `sys.path` antes de importar `scripts/`; el porqué está en
+> [docs/05](docs/05-desarrollo-de-dags.md).
 
 Crea uno nuevo con la estructura estándar: `make new-dag NAME=sales_daily ARGS='-s "0 6 * * *"'`.
 Reglas y patrones: [docs/05-desarrollo-de-dags.md](docs/05-desarrollo-de-dags.md).

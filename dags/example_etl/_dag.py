@@ -24,6 +24,8 @@ default_args = {
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=2),
+    # Smoke test of a fresh install: it must run before any Connection exists, so the
+    # failure alert is off. Real DAGs always set one (see dags/example_alerts).
     # Uncomment once the smtp_default Connection exists:
     # "on_failure_callback": [task_failure_email_alert(["data-team@example.com"])],
 }

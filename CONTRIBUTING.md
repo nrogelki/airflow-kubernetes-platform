@@ -6,8 +6,8 @@ infraestructura o reportes de incidentes reales con su solución.
 
 ## Antes de empezar
 
-- Para cambios grandes (arquitectura, nuevos componentes), abre primero un **issue** o
-  una **Discussion** para acordar el enfoque.
+- Para cambios grandes (arquitectura, nuevos componentes), abre primero un **issue**
+  (plantilla *Feature request*) para acordar el enfoque.
 - Lee [docs/05-desarrollo-de-dags.md](docs/05-desarrollo-de-dags.md) y los
   [ADR](docs/adr/): explican el porqué de las decisiones.
 
