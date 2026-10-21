@@ -14,6 +14,13 @@ versionado según [Semantic Versioning](https://semver.org/lang/es/).
   pip siguen en PRs separados).
 - `detect-secrets` en pre-commit usa un `.secrets.baseline` con los falsos positivos
   auditados.
+- Acciones del CI actualizadas (`checkout` v7, `setup-python` v7, `setup-helm` v5,
+  `setup-kubectl` v5, `setup-buildx-action` v4, `build-push-action` v7) y mínimos de
+  las herramientas de desarrollo (ruff 0.17, pytest 9, yamllint 1.38, pre-commit 4.7).
+- Hooks de pre-commit alineados con el CI: `pre-commit-hooks` v6.0.0, ruff v0.17.1 y
+  shellcheck v0.11.0.1.
+- `polars` fijado en `requirements-dev.txt` a la misma versión que el entorno de
+  producción (`envs/p313`, 1.44.2), para que los tests prueben lo que corre en los DAGs.
 
 ### Fixed
 
