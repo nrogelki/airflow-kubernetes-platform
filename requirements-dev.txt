@@ -6,4 +6,4 @@ pyyaml>=6
 ruff>=0.6
 yamllint>=1.35
 shellcheck-py>=0.10
-pre-commit>=3.7
+pre-commit>=4.7.0
