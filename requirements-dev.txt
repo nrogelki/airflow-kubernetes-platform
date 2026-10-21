@@ -3,7 +3,7 @@
 pytest>=8
 polars>=1.30
 pyyaml>=6
-ruff>=0.6
+ruff>=0.17.1
 yamllint>=1.35
 shellcheck-py>=0.10
 pre-commit>=4.7.0
