@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff, yamllint, shellcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: yamllint .
+      - run: shellcheck -x scripts/*.sh scripts/lib/*.sh tests/*.sh k8s/cronjobs/scripts/*.sh
+
+  test:
+    name: Tests + DAG checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y gettext-base
+      - run: pip install -r requirements-dev.txt
+      - run: python tools/check_dags.py
+      - run: python -m pytest
+      - run: bash tests/test_render_config.sh
+
+  helm-template:
+    name: Helm template (official chart)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.2
+      - run: sudo apt-get update && sudo apt-get install -y gettext-base
+      - name: Render values with the example config
+        run: |
+          mkdir -p /tmp/rendered
+          pip install pyyaml
+          KEEP_RENDERED=/tmp/rendered bash tests/test_render_config.sh
+      - name: helm template
+        run: |
+          helm repo add apache-airflow https://airflow.apache.org
+          helm template airflow apache-airflow/airflow -n airflow -f /tmp/rendered/values.yaml > /tmp/manifests.yaml
+          grep -q "KubernetesExecutor" /tmp/manifests.yaml
+          echo "Rendered $(grep -c '^kind:' /tmp/manifests.yaml) Kubernetes objects"
+
+  kustomize:
+    name: Kustomize (self-healing CronJobs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - run: kubectl kustomize k8s/cronjobs > /tmp/cronjobs.yaml
+      - run: |
+          grep -q "name: pod-cleaner-script" /tmp/cronjobs.yaml
+          grep -q "name: calico-watchdog-script" /tmp/cronjobs.yaml
+          echo "Rendered $(grep -c '^kind:' /tmp/cronjobs.yaml) objects"
+
+  docker:
+    name: Build Airflow image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker/airflow
+          push: false
+          tags: airflow-k8s-base:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

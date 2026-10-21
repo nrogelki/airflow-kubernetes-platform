@@ -1,0 +1,6 @@
+# Per-DAG business logic lives in dags/<dag_id>/scripts/ and is NOT a DAG file.
+# The dag-processor must never import it: its top-level imports (polars,
+# drivers...) only exist in the isolated environment, not in the Airflow image.
+# Syntax: regexp (set explicitly via core.dag_ignore_file_syntax in helm/values).
+.*/scripts/.*
+.*/sql/.*

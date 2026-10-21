@@ -1,0 +1,90 @@
+---
+# ============================================================
+# CLEANUP CRONJOB — airflow namespace
+# Deletes pods in ERROR/FAILED state. Does NOT touch healthy states:
+#   - DELETED: phase=Failed (Error, Evicted, DeadlineExceeded, OOMKilled)
+#              and pods stuck >10 min in: ImagePullBackOff, ErrImagePull,
+#              CrashLoopBackOff, CreateContainerConfigError,
+#              CreateContainerError, InvalidImageName, RunContainerError,
+#              StartError, ContainerStatusUnknown
+#   - IGNORED: Running, Pending/ContainerCreating (normal startup),
+#              Succeeded/Completed, Terminating
+# Task logs are NOT lost: they persist in the hostPath logs/ of the node.
+# ============================================================
+
+# 1. SERVICE ACCOUNT (in the airflow namespace)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-cleaner
+  namespace: airflow
+---
+# 2. ROLE (permissions ONLY within the airflow namespace)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-cleaner-role
+  namespace: airflow
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+# 3. ROLE BINDING
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-cleaner-binding
+  namespace: airflow
+subjects:
+  - kind: ServiceAccount
+    name: pod-cleaner
+    namespace: airflow
+roleRef:
+  kind: Role
+  name: pod-cleaner-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# 4. CRONJOB (script: scripts/*.sh, packaged as a ConfigMap by kustomization.yaml) (every 10 minutes)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-cleaner-cron
+  namespace: airflow
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 240
+      template:
+        metadata:
+          labels:
+            app: pod-cleaner
+        spec:
+          serviceAccountName: pod-cleaner
+          containers:
+            - name: cleaner
+              # Same image as the Calico watchdog. Needs kubectl + GNU date (Debian-based).
+              # Pin a concrete tag in production and pre-pull it on the node.
+              image: docker.io/bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: NAMESPACE
+                  value: "airflow"
+                - name: DRY_RUN
+                  value: "0"        # set to "1" to test without deleting anything
+              command:
+                - /bin/sh
+                - /scripts/cleanup.sh
+              volumeMounts:
+                - name: script-volume
+                  mountPath: /scripts
+          volumes:
+            - name: script-volume
+              configMap:
+                name: pod-cleaner-script
+                defaultMode: 0755
+          restartPolicy: OnFailure

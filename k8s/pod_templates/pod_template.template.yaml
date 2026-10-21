@@ -1,0 +1,59 @@
+# =============================================================================
+# pod_template.template.yaml — plantilla del Pod de TAREA del KubernetesExecutor
+#
+# `make render` genera k8s/pod_templates/pod_template.yaml (en .gitignore).
+# Ese archivo se monta por hostPath en el scheduler: cambiarlo NO requiere
+# helm upgrade, solo `make render` + reiniciar el scheduler.
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: base-worker-pod
+spec:
+  # Una tarea fallida no se reinicia sola: los reintentos los gestiona Airflow.
+  restartPolicy: Never
+  # Corta tareas colgadas para no acumular pods zombi.
+  activeDeadlineSeconds: ${WORKER_ACTIVE_DEADLINE_SECONDS}
+  containers:
+    - name: base
+      image: ${AIRFLOW_IMAGE_REPO}:${AIRFLOW_IMAGE_TAG}
+      imagePullPolicy: Never
+      env:
+        - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
+          value: "http://${HELM_RELEASE}-api-server.${AIRFLOW_NAMESPACE}.svc.cluster.local:8080/execution/"
+        - name: PYTHONPATH
+          value: "/opt/airflow/dags:/opt/airflow/libs"
+        - name: AIRFLOW_BASE_URL
+          value: "http://${SERVER_IP}:${NODE_PORT}"
+        - name: ALERT_TIMEZONE
+          value: "${ALERT_TIMEZONE}"
+      # requests bajos (lo que se reserva) + limits generosos (techo de seguridad).
+      resources:
+        requests:
+          cpu: "${WORKER_CPU_REQUEST}"
+          memory: "${WORKER_MEMORY_REQUEST}"
+        limits:
+          cpu: "${WORKER_CPU_LIMIT}"
+          memory: "${WORKER_MEMORY_LIMIT}"
+      volumeMounts:
+        - { name: dags,          mountPath: /opt/airflow/dags, readOnly: true }
+        - { name: logs,          mountPath: /opt/airflow/logs }
+        - { name: pod-templates, mountPath: /opt/airflow/pod_templates }
+        - { name: files,         mountPath: /opt/airflow/files }
+        - { name: libs,          mountPath: /opt/airflow/libs, readOnly: true }
+        # Entorno aislado para @task.external_python (solo lectura).
+        - { name: python-env,    mountPath: /opt/conda/envs/${PYTHON_ENV_NAME}, readOnly: true }
+  volumes:
+    - name: dags
+      hostPath: { path: "${PROJECT_PATH}/dags", type: Directory }
+    - name: logs
+      hostPath: { path: "${PROJECT_PATH}/logs", type: Directory }
+    - name: pod-templates
+      hostPath: { path: "${PROJECT_PATH}/k8s/pod_templates", type: Directory }
+    - name: files
+      hostPath: { path: "${PROJECT_PATH}/files", type: Directory }
+    - name: libs
+      hostPath: { path: "${PROJECT_PATH}/libs", type: Directory }
+    # Si esta ruta no existe en el nodo, TODOS los pods de tarea fallan al arrancar.
+    - name: python-env
+      hostPath: { path: "${CONDA_ENVS_HOST_PATH}/${PYTHON_ENV_NAME}", type: Directory }

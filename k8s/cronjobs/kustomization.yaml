@@ -1,0 +1,23 @@
+# Self-healing CronJobs. Apply with:  kubectl apply -k k8s/cronjobs/   (or: make cronjobs)
+#
+# The shell scripts live as real files in scripts/ (linted by shellcheck in CI)
+# and are packaged here as ConfigMaps mounted at /scripts in each CronJob pod.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cleanup-failed-pods.yaml
+  - watchdog-calico.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true   # the CronJobs reference fixed ConfigMap names
+
+configMapGenerator:
+  - name: pod-cleaner-script
+    namespace: airflow          # change if AIRFLOW_NAMESPACE is not "airflow"
+    files:
+      - cleanup.sh=scripts/cleanup-failed-pods.sh
+  - name: calico-watchdog-script
+    namespace: kube-system
+    files:
+      - watchdog.sh=scripts/watchdog-calico.sh

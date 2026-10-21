@@ -1,0 +1,164 @@
+# =============================================================================
+# values.template.yaml — plantilla del values.yaml del chart oficial de Airflow
+#
+# NO editar helm/values.yaml a mano: se GENERA con `make render` a partir de
+# esta plantilla + config/platform.env (se sustituyen sus variables de entorno).
+# helm/values.yaml está en .gitignore porque contiene la secret key y la IP.
+#
+# Justificación de cada bloque: docs/04-configuracion.md
+# =============================================================================
+
+executor: "KubernetesExecutor"
+
+images:
+  airflow:
+    repository: ${AIRFLOW_IMAGE_REPO}
+    tag: "${AIRFLOW_IMAGE_TAG}"
+    # La imagen se importa al containerd del nodo: cero descargas en runtime.
+    pullPolicy: Never
+
+# KubernetesExecutor no usa Celery: sin Redis ni Flower.
+redis:
+  enabled: false
+flower:
+  enabled: false
+
+postgresql:
+  enabled: true
+  primary:
+    # Keys of the bundled PostgreSQL subchart live under primary.* (a top-level
+    # postgresql.persistence block is silently ignored by the chart).
+    # Both values are FIXED when the volume is first created: changing them on an
+    # existing install makes `helm upgrade` fail (StatefulSet spec is immutable).
+    persistence:
+      enabled: true
+      size: ${POSTGRES_STORAGE_SIZE}
+      storageClass: "${STORAGE_CLASS}"
+    resources:
+      requests: { cpu: "250m", memory: "256Mi" }
+      limits:   { cpu: "500m", memory: "512Mi" }
+
+# CRÍTICO: clave estática e idéntica en 3 lugares (esta, config.webserver.secret_key
+# y la env AIRFLOW__WEBSERVER__SECRET_KEY). Si difieren -> errores CSRF / loop de login.
+webserverSecretKey: "${WEBSERVER_SECRET_KEY}"
+
+config:
+  core:
+    # spawn en vez de fork: evita deadlocks/CrashLoopBackOff del dag-processor
+    # al parsear muchos DAGs pesados en paralelo.
+    mp_start_method: "spawn"
+    load_examples: "False"
+    dags_are_paused_at_creation: "True"
+    # dags/.airflowignore usa expresiones regulares: fijarlo explícitamente
+    # (el default cambió entre versiones de Airflow).
+    dag_ignore_file_syntax: "regexp"
+    # CRÍTICO: nombre exacto del Service interno (con guion: api-server).
+    execution_api_server_url: "http://${HELM_RELEASE}-api-server.${AIRFLOW_NAMESPACE}.svc.cluster.local:8080/execution/"
+    parallelism: "${PARALLELISM}"
+    max_active_tasks_per_dag: "${MAX_ACTIVE_TASKS_PER_DAG}"
+    test_connection: "Enabled"
+  webserver:
+    secret_key: "${WEBSERVER_SECRET_KEY}"
+  api:
+    # CRÍTICO: sin base_url el navegador entra en loop infinito de redirects.
+    # En Airflow 3 vive en [api] ([webserver] base_url está deprecado).
+    base_url: "http://${SERVER_IP}:${NODE_PORT}"
+    # CRÍTICO: 1 worker. Con varios, cada proceso guarda su propio estado de
+    # sesión y la UI entra en loop de 401 Unauthorized.
+    workers: "1"
+  kubernetes_executor:
+    pod_template_file: "/opt/airflow/pod_templates/pod_template.yaml"
+    namespace: "${AIRFLOW_NAMESPACE}"
+    worker_container_name: "base"
+    worker_pods_creation_batch_size: "${WORKER_PODS_CREATION_BATCH_SIZE}"
+
+env:
+  - name: PYTHONPATH
+    value: "/opt/airflow/dags:/opt/airflow/libs"
+  - name: AIRFLOW__WEBSERVER__SECRET_KEY
+    value: "${WEBSERVER_SECRET_KEY}"
+  - name: AIRFLOW_BASE_URL
+    value: "http://${SERVER_IP}:${NODE_PORT}"
+  - name: ALERT_TIMEZONE
+    value: "${ALERT_TIMEZONE}"
+
+# -----------------------------------------------------------------------------
+# Montajes hostPath por componente (principio de mínimo privilegio).
+# type: Directory => si la carpeta no existe en el nodo, el pod NO arranca.
+# `make bootstrap` las crea con los permisos correctos.
+# Los entornos Conda NO se montan aquí: solo en el pod de tarea (pod_template).
+# -----------------------------------------------------------------------------
+
+scheduler:
+  resources:
+    requests: { cpu: "250m", memory: "512Mi" }
+    # 2Gi, not 1Gi: the scheduler alone uses ~570Mi, and every `airflow ...` CLI command
+    # run inside it (make shell, kubectl exec ... airflow) adds a full Airflow process.
+    # With 1Gi a single command reached the limit and the SCHEDULER got OOMKilled.
+    limits:   { cpu: "1000m", memory: "2Gi" }
+  extraVolumes:
+    - name: dags
+      hostPath: { path: "${PROJECT_PATH}/dags", type: Directory }
+    - name: pod-templates
+      hostPath: { path: "${PROJECT_PATH}/k8s/pod_templates", type: Directory }
+    - name: files
+      hostPath: { path: "${PROJECT_PATH}/files", type: Directory }
+    - name: libs
+      hostPath: { path: "${PROJECT_PATH}/libs", type: Directory }
+  extraVolumeMounts:
+    - { name: dags,          mountPath: /opt/airflow/dags }
+    - { name: pod-templates, mountPath: /opt/airflow/pod_templates }
+    - { name: files,         mountPath: /opt/airflow/files }
+    - { name: libs,          mountPath: /opt/airflow/libs }
+
+dagProcessor:
+  resources:
+    requests: { cpu: "250m", memory: "512Mi" }
+    limits:   { cpu: "1000m", memory: "1536Mi" }
+  # Probe relajado: parsear DAGs pesados puede bloquear el proceso más que el default.
+  livenessProbe:
+    timeoutSeconds: 30
+    periodSeconds: 60
+    failureThreshold: 5
+  extraVolumes:
+    - name: dags
+      hostPath: { path: "${PROJECT_PATH}/dags", type: Directory }
+    - name: files
+      hostPath: { path: "${PROJECT_PATH}/files", type: Directory }
+    - name: libs
+      hostPath: { path: "${PROJECT_PATH}/libs", type: Directory }
+  extraVolumeMounts:
+    - { name: dags,  mountPath: /opt/airflow/dags }
+    - { name: files, mountPath: /opt/airflow/files }
+    - { name: libs,  mountPath: /opt/airflow/libs }
+
+# El api-server NO necesita dags/ (lee los DAGs serializados desde PostgreSQL),
+# pero SÍ necesita logs/: es quien sirve la pestaña Logs de la UI.
+apiServer:
+  resources:
+    requests: { cpu: "250m", memory: "1Gi" }
+    limits:   { cpu: "1000m", memory: "2Gi" }
+  # 30 x 10s = 5 min de tolerancia al arranque (el default de 60s es corto en nodos modestos).
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 10
+  service:
+    type: NodePort
+    ports:
+      - name: api-server
+        port: 8080
+        nodePort: ${NODE_PORT}
+  extraVolumes:
+    - name: logs
+      hostPath: { path: "${PROJECT_PATH}/logs", type: Directory }
+  extraVolumeMounts:
+    - { name: logs, mountPath: /opt/airflow/logs }
+
+triggerer:
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+  livenessProbe:
+    timeoutSeconds: 40
+    failureThreshold: 10
+    periodSeconds: 60

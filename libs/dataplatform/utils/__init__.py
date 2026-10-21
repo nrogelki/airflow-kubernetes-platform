@@ -1,0 +1,1 @@
+"""Generic, dependency-free utilities."""

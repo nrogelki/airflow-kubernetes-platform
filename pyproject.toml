@@ -1,0 +1,23 @@
+[project]
+name = "airflow-kubernetes-platform"
+version = "1.0.0"
+description = "Production-ready Apache Airflow 3 on Kubernetes (KubernetesExecutor) for single-node MicroK8s"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", "logs", "files"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dataplatform", "check_dags", "example_etl", "example_resource_override"]

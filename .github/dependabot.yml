@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+  - package-ecosystem: docker
+    directory: /docker/airflow
+    schedule: { interval: monthly }
+    # Airflow upgrades are planned, not automatic: review release notes first.
+    ignore:
+      - dependency-name: apache/airflow
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: pip
+    directory: /
+    schedule: { interval: monthly }

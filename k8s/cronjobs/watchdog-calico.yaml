@@ -1,0 +1,94 @@
+---
+# ============================================================
+# CALICO WATCHDOG — Auto-healing for CNI authentication loss
+# Signature detected: plugin type="calico" failed ... Unauthorized
+# Corrected version details:
+#   1. hostNetwork: true  -> Watchdog starts even if Calico is down
+#   2. date GNU (-d)      -> Cooldown fix: `date -D` (BusyBox) did not work
+#   3. Event window       -> Only counts events from the last 15 min
+#                            (prevents re-triggering reboots for old, resolved events)
+#   4. DRY_RUN            -> Test mode: detects and logs, does not reboot
+# ============================================================
+
+# 1. SERVICE ACCOUNT (Watchdog identity)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: calico-watchdog
+  namespace: kube-system
+---
+# 2. CLUSTER ROLE (Minimum permissions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: calico-watchdog-role
+rules:
+  - apiGroups: [""]
+    resources: ["events", "pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "patch"]   # patch = required for rollout restart
+---
+# 3. CLUSTER ROLE BINDING
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: calico-watchdog-binding
+subjects:
+  - kind: ServiceAccount
+    name: calico-watchdog
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: calico-watchdog-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# 4. CRONJOB (script: scripts/*.sh, packaged as a ConfigMap by kustomization.yaml) (Every 5 minutes)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: calico-watchdog-cron
+  namespace: kube-system
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # If the job fails to start within 4 min (e.g., node resource saturation), it is discarded:
+      activeDeadlineSeconds: 240
+      template:
+        metadata:
+          labels:
+            app: calico-watchdog
+        spec:
+          serviceAccountName: calico-watchdog
+          # CRITICAL: hostNetwork prevents dependency on the CNI itself. Without this,
+          # the watchdog cannot provision its own pod network sandbox when Calico is down
+          # (the exact FailedCreatePodSandBox error it is meant to resolve).
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+            - name: watchdog
+              # Any Debian-based image with kubectl + GNU date works. Pin a concrete tag
+              # in production and pre-pull it on the node
+              # (same policy as the Airflow image: no reliance on internet access at runtime)
+              image: docker.io/bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: DRY_RUN
+                  value: "0"        # Set to "1" to test safely without restarting
+              command:
+                - /bin/sh
+                - /scripts/watchdog.sh
+              volumeMounts:
+                - name: script-volume
+                  mountPath: /scripts
+          volumes:
+            - name: script-volume
+              configMap:
+                name: calico-watchdog-script
+                defaultMode: 0755
+          restartPolicy: OnFailure

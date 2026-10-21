@@ -1,0 +1,28 @@
+name: Reporte de bug
+description: Algo no funciona como dice la documentación
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Qué pasó
+      description: Síntoma observado vs. lo esperado.
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Cómo reproducirlo
+      placeholder: "1. make render\n2. make deploy\n3. ..."
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      description: "`make doctor`, `kubectl describe pod ...`, `kubectl logs ... -p`. **Quita secretos e IPs.**"
+      render: shell
+  - type: input
+    id: versions
+    attributes:
+      label: Versiones
+      placeholder: "MicroK8s 1.35.x / Helm 3.19.x / Airflow 3.2.1 / chart 1.x / Ubuntu 24.04"
+    validations: { required: true }

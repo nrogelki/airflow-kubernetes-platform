@@ -1,0 +1,35 @@
+# Integrations baked into the Airflow image (resolved against the official
+# Airflow constraints). Keep this list SHORT: only what the scheduler,
+# dag-processor or the base task process need.
+#
+# The official image already ships: cncf-kubernetes, postgres, smtp, http,
+# common-sql, standard, among others.
+#
+# Versions are PINNED to the exact ones of the official constraints file for
+# this AIRFLOW_VERSION / PYTHON_VERSION (constraints-3.2.1/constraints-3.12.txt).
+# A pin that differs from the constraints makes pip fail the build on purpose.
+# Packages NOT in the constraints file (clickhouse) are pinned to the versions
+# pip resolved together with them (build + `pip check` verified).
+# To upgrade Airflow: take the new versions from the new constraints file.
+#
+# This image and the isolated env (envs/p313) are SEPARATE interpreters with
+# separate site-packages: versions here do not need to match the env's. The
+# one thing both must share is apache-airflow (and its task-sdk) itself.
+#
+# Any change here => bump AIRFLOW_IMAGE_TAG in config/platform.env and rebuild.
+
+# --- Shipped with the official image (pinned so the build never moves them)
+apache-airflow-providers-postgres==6.6.3
+apache-airflow-providers-smtp==2.4.5
+
+# --- Hive (HiveServer2 hooks). Pulls PyHive 0.7.0 / thrift 0.16.0
+apache-airflow-providers-apache-hive==9.4.2
+
+# --- ClickHouse (not in the Airflow constraints)
+airflow-clickhouse-plugin==1.8.0
+clickhouse-connect==1.10.1
+
+# --- Google APIs (Sheets / Drive via service account)
+google-api-python-client==2.194.0
+google-auth-httplib2==0.3.1
+google-auth-oauthlib==1.3.1

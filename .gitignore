@@ -1,0 +1,39 @@
+# ---- Secrets & host-specific config (NEVER commit) ----
+config/platform.env
+helm/values.yaml
+k8s/pod_templates/pod_template.yaml
+*.keytab
+krb5.conf
+*credentials*.json
+connections*.json
+pools*.json
+variables*.json
+*.pem
+*.key
+.env
+
+# ---- Runtime data (lives on the node) ----
+logs/
+files/**/*
+!files/**/
+!files/**/.gitkeep
+!files/**/*.json
+!files/**/*.yml
+!files/**/*.yaml
+files/**/*credentials*
+files/kerberos/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+*.swp
+.DS_Store

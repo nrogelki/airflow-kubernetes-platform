@@ -1,0 +1,35 @@
+# =============================================================================
+# environment.yml — isolated environment for @task.external_python (p313)
+#
+# ONE file, ONE environment. Only the DIRECT dependencies, each one pinned.
+# The full resolution (every transitive package, also pinned) is exported by
+# scripts/create_conda_env.sh to environment.lock.yml — commit both files.
+#
+#   Add / upgrade a library: edit this file -> make conda-env -> commit both files
+#   New server:              make conda-env   (rebuilds from environment.lock.yml)
+#
+# Versions = the ones validated in production (Airflow 3.2.1 + Python 3.13).
+# Airflow is here (same version as the image) so tasks can use hooks and
+# Connections (BaseHook.get_connection) inside the isolated process.
+# Data libraries only: never add them to docker/airflow/requirements.txt.
+# =============================================================================
+name: p313
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.13.15
+  - pip
+  - pip:
+      # --- Airflow (same version as the image) + providers used by the tasks ---
+      - apache-airflow==3.2.1
+      - apache-airflow-providers-postgres==7.0.2
+      - apache-airflow-providers-smtp==3.0.3
+      - apache-airflow-providers-sftp==6.0.1
+      # --- Data libraries ---
+      - polars==1.44.2
+      - pyarrow==25.0.0
+      - pandas==3.0.3
+      - sqlalchemy==2.0.51
+      - psycopg[binary]==3.3.4
+      - openpyxl==3.1.5

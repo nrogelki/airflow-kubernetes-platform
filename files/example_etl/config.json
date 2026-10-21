@@ -1,0 +1,5 @@
+{
+  "regions": ["north", "south", "east", "west"],
+  "rows": 5000,
+  "seed": 42
+}

@@ -1,0 +1,56 @@
+# =============================================================================
+# example_kpo_pod.yaml — base for the SIBLING pod of a KubernetesPodOperator
+# (dags/example_kpo, task extract_with_pod_template).
+#
+# This is NOT the task pod template (pod_template.yaml): it is passed to the KPO as
+# `pod_template_file=` and the KPO arguments (image, cmds, volumes, resources...)
+# are applied on top of it. It is read by the task pod from
+# /opt/airflow/pod_templates/, so it lives in this folder. Committed on purpose:
+# it holds no host-specific values.
+#
+# Shape: a native sidecar (initContainer with restartPolicy: Always, K8s >= 1.29)
+# that keeps a file fresh in an in-memory volume shared with the main container.
+# It is the same shape as a Kerberos ticket-renewal sidecar (kinit in a loop),
+# without any real credentials.
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-kpo
+  labels:
+    example: kpo-pod-template
+spec:
+  restartPolicy: Never
+  initContainers:
+    - name: token-sidecar
+      image: python:3.10-slim
+      imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      securityContext: { runAsUser: 50000, runAsGroup: 0 }
+      command: ["python", "-c"]
+      args:
+        - |
+          import time
+          while True:
+              open("/shared/token", "w").write("ok")
+              time.sleep(30)
+      # The main container starts only when the sidecar has written its file.
+      startupProbe:
+        exec: { command: ["test", "-s", "/shared/token"] }
+        periodSeconds: 2
+        failureThreshold: 30
+      resources:
+        requests: { cpu: "10m", memory: "32Mi" }
+        limits: { cpu: "100m", memory: "64Mi" }
+      volumeMounts:
+        - { name: shared, mountPath: /shared }
+  containers:
+    - name: base  # the KPO main container must be called "base"
+      image: placeholder  # replaced by the KPO `image` argument
+      env:
+        - { name: FROM_TEMPLATE, value: "yes" }
+      volumeMounts:
+        - { name: shared, mountPath: /shared }
+  volumes:
+    - name: shared
+      emptyDir: { medium: Memory }
