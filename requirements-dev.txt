@@ -3,7 +3,7 @@
 pytest>=9.1.1
 polars==1.44.2  # same as envs/p313/environment.yml (production)
 pyyaml>=6
-ruff>=0.17.1
+ruff>=0.17.3
 yamllint>=1.38.0
 shellcheck-py>=0.10
 pre-commit>=4.7.0
